@@ -1,0 +1,341 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"Analyse E-commerce avec Polars\"\n",
+        "author: \"Gaël Penessot\"\n",
+        "date: today\n",
+        "date-format: \"DD/MM/YYYY\"\n",
+        "format: \n",
+        "  html:\n",
+        "    code-fold: true\n",
+        "    theme: cosmo\n",
+        "    toc: true\n",
+        "    toc-depth: 3\n",
+        "    fig-width: 8\n",
+        "    fig-height: 6\n",
+        "execute:\n",
+        "  echo: false\n",
+        "  warning: false\n",
+        "filters:\n",
+        "   - quarto\n",
+        "---"
+      ],
+      "id": "9fccb8d2"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: setup\n",
+        "#| include: false\n",
+        "import polars as pl\n",
+        "import plotly.express as px\n",
+        "import plotly.graph_objects as go\n",
+        "import json\n",
+        "import os\n",
+        "\n",
+        "# Chargement des résultats\n",
+        "results_dir = \"/home/gael/Documents/Github/polars-ecommerce-analysis/data/processed/report_20250119_003050/results\"\n",
+        "def load_results(filename):\n",
+        "    filepath = os.path.join(results_dir, filename)\n",
+        "    if filepath.endswith('.json'):\n",
+        "        with open(filepath, 'r') as f:\n",
+        "            return json.load(f)\n",
+        "    return pl.read_csv(filepath)\n",
+        "\n",
+        "# Chargement des données\n",
+        "global_kpis = load_results('global_kpis.json')\n",
+        "customer_metrics = load_results('customer_metrics.csv')\n",
+        "price_analysis = load_results('price_analysis.csv')\n",
+        "top_products = load_results('top_products.csv')\n",
+        "temporal_analysis = {\n",
+        "    k: load_results(f'temporal_{k}.csv') \n",
+        "    for k in ['daily', 'weekday', 'hourly']\n",
+        "}"
+      ],
+      "id": "setup",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Résumé Exécutif\n",
+        "\n",
+        "Cette analyse présente une vue d'ensemble de notre activité e-commerce basée sur les données disponibles. Les points clés incluent :\n",
+        "\n",
+        "- Chiffre d'affaires total : €{{format(global_kpis['total_revenue'], ',.2f')}}\n",
+        "- Nombre total de commandes : {{format(global_kpis['total_orders'], ',d')}}\n",
+        "- Panier moyen : €{{format(global_kpis['average_order_value'], ',.2f')}}\n",
+        "\n",
+        "## Points Saillants\n",
+        "\n",
+        "1. Performance Générale\n",
+        "   - {{global_kpis['total_customers']}} clients actifs\n",
+        "   - {{global_kpis['total_products']}} produits différents vendus\n",
+        "   - Moyenne de {{format(global_kpis['average_items_per_order'], '.1f')}} articles par commande\n",
+        "\n",
+        "2. Répartition des Ventes"
+      ],
+      "id": "2b2d3e10"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "md-indent": "   "
+      },
+      "source": [
+        "#| label: fig-sales-distribution\n",
+        "#| fig-cap: Distribution des ventes par catégorie de prix\n",
+        "\n",
+        "fig = px.bar(price_analysis, \n",
+        "             x='PriceCategory', \n",
+        "             y='TotalRevenue',\n",
+        "             title=\"Répartition du CA par catégorie de prix\",\n",
+        "             labels={'PriceCategory': 'Catégorie de prix', \n",
+        "                    'TotalRevenue': 'Chiffre d\\'affaires (€)'})\n",
+        "fig.show()"
+      ],
+      "id": "fig-sales-distribution",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Analyse Détaillée\n",
+        "\n",
+        "## 1. Analyse Temporelle\n",
+        "\n",
+        "### 1.1 Évolution des Ventes"
+      ],
+      "id": "37fd2fef"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-sales-evolution\n",
+        "#| fig-cap: Évolution quotidienne des ventes\n",
+        "\n",
+        "fig = px.line(temporal_analysis['daily'], \n",
+        "              x='OrderDate', \n",
+        "              y='Revenue',\n",
+        "              title=\"Évolution du chiffre d'affaires quotidien\",\n",
+        "              labels={'Revenue': 'CA (€)', 'OrderDate': 'Date'})\n",
+        "fig.show()"
+      ],
+      "id": "fig-sales-evolution",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 1.2 Distribution Hebdomadaire"
+      ],
+      "id": "4811dcee"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-weekly-pattern\n",
+        "#| fig-cap: Distribution des ventes par jour de la semaine\n",
+        "\n",
+        "fig = px.bar(temporal_analysis['weekday'],\n",
+        "             x='WeekDay',\n",
+        "             y='Revenue',\n",
+        "             title=\"CA par jour de la semaine\",\n",
+        "             labels={'WeekDay': 'Jour', 'Revenue': 'CA (€)'})\n",
+        "fig.show()"
+      ],
+      "id": "fig-weekly-pattern",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 2. Analyse des Produits\n",
+        "\n",
+        "### 2.1 Top 10 des Produits"
+      ],
+      "id": "94981dd2"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-top-products\n",
+        "#| fig-cap: Top 10 des produits par chiffre d'affaires\n",
+        "\n",
+        "top_10 = top_products.head(10)\n",
+        "fig = px.bar(top_10,\n",
+        "             x='Description',\n",
+        "             y='TotalRevenue',\n",
+        "             title=\"Top 10 des produits\",\n",
+        "             labels={'Description': 'Produit', \n",
+        "                    'TotalRevenue': 'CA total (€)'})\n",
+        "fig.update_layout(xaxis_tickangle=45)\n",
+        "fig.show()"
+      ],
+      "id": "fig-top-products",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 2.2 Analyse des Prix\n",
+        "Cette section examine la distribution des prix et leur impact sur les ventes.\n"
+      ],
+      "id": "78e805c1"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-price-analysis\n",
+        "#| fig-cap: Analyse des catégories de prix\n",
+        "\n",
+        "fig = go.Figure()\n",
+        "fig.add_trace(go.Bar(\n",
+        "    name=\"Nombre de produits\",\n",
+        "    x=price_analysis['PriceCategory'],\n",
+        "    y=price_analysis['NumberProducts']\n",
+        "))\n",
+        "fig.add_trace(go.Bar(\n",
+        "    name=\"Nombre de commandes\",\n",
+        "    x=price_analysis['PriceCategory'],\n",
+        "    y=price_analysis['NumberOrders']\n",
+        "))\n",
+        "fig.update_layout(barmode='group',\n",
+        "                 title=\"Comparaison des métriques par catégorie de prix\")\n",
+        "fig.show()"
+      ],
+      "id": "fig-price-analysis",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 3. Analyse des Clients\n",
+        "\n",
+        "### 3.1 Segmentation RFM"
+      ],
+      "id": "a197901a"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-rfm-segments\n",
+        "#| fig-cap: Répartition des segments RFM\n",
+        "\n",
+        "segment_counts = (customer_metrics\n",
+        "    .group_by('RFM_Segment')\n",
+        "    .agg(CustomerID=pl.count('CustomerID'))\n",
+        "    .sort('CustomerID', reverse=True))\n",
+        "\n",
+        "fig = px.pie(segment_counts,\n",
+        "             names='RFM_Segment',\n",
+        "             values='CustomerID',\n",
+        "             title=\"Répartition des segments clients\")\n",
+        "fig.show()"
+      ],
+      "id": "fig-rfm-segments",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 3.2 Valeur des Segments"
+      ],
+      "id": "34486521"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "#| label: fig-segment-value\n",
+        "#| fig-cap: Valeur moyenne par segment\n",
+        "\n",
+        "segment_value = (customer_metrics\n",
+        "    .group_by('RFM_Segment')\n",
+        "    .agg(MonetaryValue=pl.mean('MonetaryValue'))\n",
+        "    .sort('MonetaryValue', reverse=True))\n",
+        "\n",
+        "fig = px.bar(segment_value,\n",
+        "             x='RFM_Segment',\n",
+        "             y='MonetaryValue',\n",
+        "             title=\"Valeur moyenne des clients par segment\",\n",
+        "             labels={'RFM_Segment': 'Segment',\n",
+        "                    'MonetaryValue': 'Valeur moyenne (€)'})\n",
+        "fig.show()"
+      ],
+      "id": "fig-segment-value",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Recommandations Stratégiques\n",
+        "\n",
+        "1. **Optimisation de la gamme de prix**\n",
+        "   - Les produits {{price_analysis[0]['PriceCategory']}} génèrent le plus de revenus\n",
+        "   - Opportunité d'expansion dans la catégorie {{price_analysis[-1]['PriceCategory']}}\n",
+        "\n",
+        "2. **Gestion de la clientèle**\n",
+        "   - Focus sur la rétention des \"Champions\" ({{segment_counts[0]['CustomerID']}} clients)\n",
+        "   - Programme de réactivation pour les clients dormants\n",
+        "\n",
+        "3. **Optimisation temporelle**\n",
+        "   - Renforcer les ventes pendant les pics identifiés\n",
+        "   - Développer des actions pour les périodes creuses\n",
+        "\n",
+        "# Conclusion et Prochaines Étapes\n",
+        "\n",
+        "Cette analyse met en évidence plusieurs opportunités d'amélioration :\n",
+        "\n",
+        "1. **Court terme**\n",
+        "   - Optimisation du stock des top 10 produits\n",
+        "   - Campagnes ciblées par segment RFM\n",
+        "\n",
+        "2. **Moyen terme**\n",
+        "   - Développement de la gamme de prix moyenne\n",
+        "   - Programme de fidélisation basé sur les insights RFM\n",
+        "\n",
+        "3. **Long terme**\n",
+        "   - Expansion de la gamme premium\n",
+        "   - Automatisation du suivi client"
+      ],
+      "id": "e42a6838"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "/home/gael/Documents/Github/polars-ecommerce-analysis/.venv/share/jupyter/kernels/python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
